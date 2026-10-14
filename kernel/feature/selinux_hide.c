@@ -459,6 +459,19 @@ int __nocfi ksu_handle_selinux_setprocattr(struct task_struct *p, char *name, vo
         goto call_orig;
     }
 
+    /*
+     * ksu_selinux_hide_drop_backup_if_unused() can free the backup policy
+     * while this hook is still patched in. Without the backup we cannot
+     * translate the context, so let the original handler deal with it.
+     */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) || defined(KSU_COMPAT_HAS_SELINUX_POLICY_STRUCT)
+    if (unlikely(!backup_sepolicy))
+        goto call_orig;
+#else
+    if (unlikely(!backup_policydb || !backup_sidtab))
+        goto call_orig;
+#endif
+
     struct ksu_task_security_struct *tsec;
     struct cred *new;
     u32 mysid = current_sid(), sid = 0, tmp_sid, ptsid;
